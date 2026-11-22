@@ -17,8 +17,11 @@ use Illuminate\Console\Scheduling\Event;
 use ReflectionFunction;
 use ReflectionProperty;
 use stdClass;
+use Thud\Expectations\Evaluator;
+use Thud\Expectations\VerifyOutcome;
 use Thud\Recording\RunContext;
 use Thud\Recording\RunStack;
+use Thud\Schedule\ScheduleRegistry;
 use Thud\Support\Safely;
 use Thud\Transport\Buffer;
 use Thud\Transport\FlushOnTerminate;
@@ -38,7 +41,7 @@ final class ScheduleHooks
     /**
      * Artisan commands handed to a child process, keyed by spl_object_id of the event.
      *
-     * @var array<int, array{id: string, name: string}>
+     * @var array<int, array{id: string, name: string, mutex: string}>
      */
     private array $handedOff = [];
 
@@ -47,10 +50,14 @@ final class ScheduleHooks
 
     private ?string $adoptedCommand = null;
 
+    private ?string $adoptedMutex = null;
+
     public function __construct(
         private readonly RunStack $stack,
         private readonly Buffer $buffer,
         private readonly FlushOnTerminate $flusher,
+        private readonly Evaluator $evaluator,
+        private readonly ScheduleRegistry $registry,
     ) {}
 
     // ---- Scheduler process -------------------------------------------------------------------
@@ -62,8 +69,9 @@ final class ScheduleHooks
 
         if (self::runsArtisanInChildProcess($task)) {
             $run = new RunContext(RunContext::TYPE_SCHEDULED, $name);
-            $this->handedOff[spl_object_id($task)] = ['id' => $run->runId, 'name' => $name];
-            self::setEnv(json_encode(['id' => $run->runId, 'name' => $name], JSON_THROW_ON_ERROR));
+            $handoff = ['id' => $run->runId, 'name' => $name, 'mutex' => $task->mutexName()];
+            $this->handedOff[spl_object_id($task)] = $handoff;
+            self::setEnv(json_encode($handoff, JSON_THROW_ON_ERROR));
 
             return;
         }
@@ -87,7 +95,7 @@ final class ScheduleHooks
 
         $this->end($task, $exitCode === null || $exitCode === 0
             ? RunContext::STATUS_SUCCEEDED
-            : RunContext::STATUS_FAILED);
+            : RunContext::STATUS_FAILED, $task);
     }
 
     public function failed(ScheduledTaskFailed $event): void
@@ -131,6 +139,7 @@ final class ScheduleHooks
 
         $this->adoptedOwner = new stdClass;
         $this->adoptedCommand = $event->command;
+        $this->adoptedMutex = $handoff['mutex'];
         $this->stack->push(new RunContext(RunContext::TYPE_SCHEDULED, $handoff['name'], owner: $this->adoptedOwner, runId: $handoff['id']));
     }
 
@@ -141,10 +150,16 @@ final class ScheduleHooks
         }
 
         $owner = $this->adoptedOwner;
+        $mutex = $this->adoptedMutex;
         $this->adoptedOwner = null;
         $this->adoptedCommand = null;
+        $this->adoptedMutex = null;
 
-        $this->end($owner, $event->exitCode === 0 ? RunContext::STATUS_SUCCEEDED : RunContext::STATUS_FAILED);
+        // The scheduler's tasks are defined in this process too (routes/console.php), so the
+        // task's ->expect() declarations can be found by its mutex name.
+        $task = $mutex === null ? null : $this->registry->findByMutex($mutex);
+
+        $this->end($owner, $event->exitCode === 0 ? RunContext::STATUS_SUCCEEDED : RunContext::STATUS_FAILED, $task);
     }
 
     // ---- Naming -----------------------------------------------------------------------------
@@ -208,13 +223,43 @@ final class ScheduleHooks
         return isset($this->handedOff[spl_object_id($task)]);
     }
 
-    private function end(object $owner, string $status): void
+    private function end(object $owner, string $status, ?Event $task = null): void
     {
         $run = $this->stack->popOwnedBy($owner);
 
-        if ($run !== null) {
-            $this->record($run, $status);
+        if ($run === null) {
+            return;
         }
+
+        if ($status === RunContext::STATUS_SUCCEEDED && $task !== null) {
+            $this->evaluateExpectations($run, $task);
+        }
+
+        $this->record($run, $status);
+    }
+
+    private function evaluateExpectations(RunContext $run, Event $task): void
+    {
+        $expectations = $this->registry->expectationsFor($task);
+
+        if ($expectations === []) {
+            return;
+        }
+
+        $mutex = $task->mutexName();
+
+        $this->evaluator->evaluate($run, $expectations, $run->name, function (int $index, string $label, int $delay) use ($run, $mutex): void {
+            dispatch(VerifyOutcome::forSchedule($run->runId, $label, $index, $mutex)
+                ->onQueue(self::verifyQueue())
+                ->delay($delay));
+        });
+    }
+
+    public static function verifyQueue(): ?string
+    {
+        $queue = config('thud.verify_queue');
+
+        return is_string($queue) && $queue !== '' ? $queue : null;
     }
 
     private function record(RunContext $run, string $status): void
@@ -242,7 +287,7 @@ final class ScheduleHooks
     }
 
     /**
-     * @return array{id: string, name: string}|null
+     * @return array{id: string, name: string, mutex: string|null}|null
      */
     private static function readEnv(): ?array
     {
@@ -258,6 +303,6 @@ final class ScheduleHooks
             return null;
         }
 
-        return ['id' => $data['id'], 'name' => $data['name']];
+        return ['id' => $data['id'], 'name' => $data['name'], 'mutex' => is_string($data['mutex'] ?? null) ? $data['mutex'] : null];
     }
 }

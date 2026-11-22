@@ -37,6 +37,21 @@ final class SideEffectCounter
     /** @var array<string, int> */
     private array $jobs = [];
 
+    /**
+     * sha256 of lower-cased "to" addresses per mailable. Kept in memory for Expect::mailSent()->to()
+     * and never sent.
+     *
+     * @var array<string, array<string, true>>
+     */
+    private array $mailRecipients = [];
+
+    /**
+     * Exact status codes per host, for Expect::httpCalled()->withStatus(). Never sent.
+     *
+     * @var array<string, array<int, int>>
+     */
+    private array $httpStatuses = [];
+
     public function __construct()
     {
         $this->metrics = array_fill_keys(self::METRICS, 0);
@@ -49,10 +64,27 @@ final class SideEffectCounter
         }
     }
 
-    public function mailSent(string $mailable): void
+    /**
+     * @param  list<string>  $recipients  email addresses; only their hashes are kept
+     */
+    public function mailSent(string $mailable, array $recipients = []): void
     {
         $this->metrics['mail_sent']++;
         $this->mail[$mailable] = ($this->mail[$mailable] ?? 0) + 1;
+
+        foreach ($recipients as $address) {
+            $this->mailRecipients[$mailable][self::hashAddress($address)] = true;
+        }
+    }
+
+    public static function hashAddress(string $address): string
+    {
+        return hash('sha256', strtolower(trim($address)));
+    }
+
+    public function mailSentTo(string $mailable, string $addressHash): bool
+    {
+        return isset($this->mailRecipients[$mailable][$addressHash]);
     }
 
     public function notificationSent(string $notification): void
@@ -64,10 +96,36 @@ final class SideEffectCounter
     /**
      * @param  string  $statusClass  2xx, 3xx, 4xx, 5xx or failed (no response)
      */
-    public function httpCall(string $host, string $statusClass): void
+    public function httpCall(string $host, string $statusClass, ?int $status = null): void
     {
         $this->metrics['http_out']++;
         $this->httpHosts[$host][$statusClass] = ($this->httpHosts[$host][$statusClass] ?? 0) + 1;
+
+        if ($status !== null) {
+            $this->httpStatuses[$host][$status] = ($this->httpStatuses[$host][$status] ?? 0) + 1;
+        }
+    }
+
+    /**
+     * Calls to $host (null = any host), optionally only those answered with $status.
+     */
+    public function httpCount(?string $host = null, ?int $status = null): int
+    {
+        $hosts = $host === null ? array_keys($this->httpHosts) : [strtolower($host)];
+        $count = 0;
+
+        foreach ($hosts as $name) {
+            $count += $status === null
+                ? array_sum($this->httpHosts[$name] ?? [])
+                : ($this->httpStatuses[$name][$status] ?? 0);
+        }
+
+        return $count;
+    }
+
+    public function jobCount(?string $job = null): int
+    {
+        return $job === null ? $this->metrics['jobs_dispatched'] : ($this->jobs[$job] ?? 0);
     }
 
     public function jobDispatched(string $job): void

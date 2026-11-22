@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Thud\Expectations;
 
 /**
- * Scheduled-task check registered by expectRun(): the task ran within its grace period.
- *
- * Phase 0 stub: not implemented yet. See docs/BUILD.md.
+ * A scheduled task registered with ->expectRun(): the cloud raises a missed-run finding when it
+ * doesn't start within its grace period. Sent to the cloud by `php artisan thud:sync`.
  */
-final class RunHappened {}
+final class RunHappened
+{
+    public function __construct(public readonly int $graceMinutes = 10) {}
+}

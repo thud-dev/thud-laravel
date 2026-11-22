@@ -21,7 +21,7 @@ function recordedRuns(): array
     $sent = [];
 
     foreach (ingestRequests() as $body) {
-        array_push($sent, ...$body['runs']);
+        array_push($sent, ...($body['runs'] ?? [])); // skip /results and /schedule requests
     }
 
     return [...$sent, ...app(Buffer::class)->all()];

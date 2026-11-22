@@ -6,6 +6,7 @@ namespace Thud\Transport;
 
 use Composer\InstalledVersions;
 use Illuminate\Http\Client\Factory as Http;
+use Illuminate\Http\Client\Response;
 use Throwable;
 use Thud\Support\Safely;
 
@@ -15,7 +16,7 @@ use Thud\Support\Safely;
  * Gzip JSON, bearer token, a 2-second timeout and no retries: on any failure the batch is
  * dropped and a debug line is logged at most once per 10 minutes. Never throws.
  */
-final class Client
+final class Client implements Transport
 {
     public const TIMEOUT_SECONDS = 2;
 
@@ -53,10 +54,59 @@ final class Client
         }
     }
 
+    public function sendResults(string $runId, array $results): void
+    {
+        if ($results === [] || ! $this->canSend()) {
+            return;
+        }
+
+        $this->post('/runs/'.rawurlencode($runId).'/results', ['results' => $results]);
+    }
+
+    public function sendSchedule(array $tasks): bool
+    {
+        if (! $this->canSend()) {
+            return false;
+        }
+
+        return $this->post('/schedule', ['tasks' => $tasks])?->successful() ?? false;
+    }
+
+    public function ping(): array
+    {
+        if ($this->token === null || $this->token === '') {
+            return ['ok' => false, 'error' => 'THUD_TOKEN is not set.'];
+        }
+
+        try {
+            $response = $this->http->createPendingRequest()
+                ->withToken($this->token)
+                ->acceptJson()
+                ->timeout(5)
+                ->get(rtrim($this->endpoint, '/').'/ping');
+        } catch (Throwable $e) {
+            return ['ok' => false, 'error' => "Could not reach {$this->endpoint} ({$e->getMessage()})."];
+        }
+
+        if ($response->status() === 401) {
+            return ['ok' => false, 'error' => 'The token was rejected. Check THUD_TOKEN.'];
+        }
+
+        if (! $response->successful()) {
+            return ['ok' => false, 'error' => "The ingest API returned HTTP {$response->status()}."];
+        }
+
+        return [
+            'ok' => true,
+            'app' => (string) $response->json('app'),
+            'environment' => (string) $response->json('environment'),
+        ];
+    }
+
     /**
      * @param  array<string, mixed>  $body
      */
-    private function post(string $path, array $body): void
+    private function post(string $path, array $body): ?Response
     {
         try {
             $gzipped = gzencode(json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
@@ -64,7 +114,7 @@ final class Client
             if ($gzipped === false) {
                 Safely::log('transport', 'Could not gzip the payload; batch dropped.');
 
-                return;
+                return null;
             }
 
             $response = $this->http->createPendingRequest()
@@ -78,8 +128,12 @@ final class Client
             if ($response->failed()) {
                 Safely::log('transport', "Ingest returned HTTP {$response->status()}; batch dropped.");
             }
+
+            return $response;
         } catch (Throwable $e) {
             Safely::log('transport', "Ingest request failed ({$e->getMessage()}); batch dropped.");
+
+            return null;
         }
     }
 

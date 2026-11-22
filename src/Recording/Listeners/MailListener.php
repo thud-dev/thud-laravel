@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Thud\Recording\Listeners;
 
 use Illuminate\Mail\Events\MessageSent;
+use Symfony\Component\Mime\Address;
 use Thud\Recording\RunStack;
 
 /**
@@ -24,7 +25,15 @@ final class MailListener
             return;
         }
 
-        $run->counter->mailSent(self::mailableClass($event->data));
+        $run->counter->mailSent(self::mailableClass($event->data), self::recipients($event));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function recipients(MessageSent $event): array
+    {
+        return array_values(array_map(static fn (Address $address): string => $address->getAddress(), $event->message->getTo()));
     }
 
     /**

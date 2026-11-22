@@ -7,15 +7,15 @@ namespace Thud\Expectations;
 use Thud\Recording\RunContext;
 
 /**
- * A developer-declared outcome of a run. Implementations must never throw out of evaluate():
- * a throwing check is recorded as an `error` result by the caller.
+ * A developer-declared outcome of a run. Implementations may throw from evaluate(): the caller
+ * records that as an `error` result and never lets it reach the host app.
  */
 interface Expectation
 {
     /**
-     * Human-readable label. Defaults to `Class::expectations()#index` when none is set.
+     * The label set with ->label(), or null to use the default (`ClassName::expectations()#index`).
      */
-    public function label(): string;
+    public function getLabel(): ?string;
 
     public function evaluate(RunContext $run): Result;
 }

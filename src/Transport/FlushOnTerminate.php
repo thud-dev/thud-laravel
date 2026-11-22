@@ -62,7 +62,7 @@ final class FlushOnTerminate
 
             if ($runs !== []) {
                 // Pause recording so Thud's own HTTP call is never counted as a side effect.
-                $client = $this->app->make(Client::class);
+                $client = $this->app->make(Transport::class);
                 $this->stack->paused(fn () => $client->sendRuns($runs));
             }
         }, key: 'flush');

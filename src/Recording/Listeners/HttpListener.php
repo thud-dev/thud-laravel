@@ -30,7 +30,11 @@ final class HttpListener
             ? intdiv($event->response->status(), 100).'xx'
             : 'failed';
 
-        $run->counter->httpCall(self::host($event->request->url()), $statusClass);
+        $run->counter->httpCall(
+            self::host($event->request->url()),
+            $statusClass,
+            $event instanceof ResponseReceived ? $event->response->status() : null,
+        );
     }
 
     private static function host(string $url): string

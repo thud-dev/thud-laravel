@@ -29,6 +29,11 @@ use Illuminate\Queue\Events\Looping;
 use Illuminate\Routing\Router;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
+use Thud\Commands\InstallCommand;
+use Thud\Commands\SyncCommand;
+use Thud\Commands\TestCommand;
+use Thud\Expectations\Evaluator;
+use Thud\Expectations\VerifyOutcome;
 use Thud\Hooks\QueueHooks;
 use Thud\Hooks\ScheduleHooks;
 use Thud\Hooks\WebhookMiddleware;
@@ -39,10 +44,13 @@ use Thud\Recording\Listeners\MailListener;
 use Thud\Recording\Listeners\NotificationListener;
 use Thud\Recording\Listeners\QueryListener;
 use Thud\Recording\RunStack;
+use Thud\Schedule\ScheduleMacros;
+use Thud\Schedule\ScheduleRegistry;
 use Thud\Support\Safely;
 use Thud\Transport\Buffer;
 use Thud\Transport\Client;
 use Thud\Transport\FlushOnTerminate;
+use Thud\Transport\Transport;
 
 /**
  * Registers Thud's config, listeners, hooks and webhook middleware.
@@ -58,12 +66,16 @@ final class ThudServiceProvider extends PackageServiceProvider
     {
         $package
             ->name('thud')
-            ->hasConfigFile();
+            ->hasConfigFile()
+            ->hasCommands([InstallCommand::class, SyncCommand::class, TestCommand::class]);
     }
 
     public function packageRegistered(): void
     {
         $this->app->singleton(Thud::class);
+
+        // Needed even when disabled: schedules may call ->expectRun() and ->expect().
+        $this->app->singleton(ScheduleRegistry::class);
 
         if (! $this->enabled()) {
             return;
@@ -80,6 +92,7 @@ final class ThudServiceProvider extends PackageServiceProvider
             runningTests: $app->runningUnitTests() && ! (bool) self::config($app, 'thud.send_in_tests', false),
         ));
 
+        $this->app->alias(Client::class, Transport::class);
         $this->app->singleton(FlushOnTerminate::class);
 
         $this->app->singleton(QueryListener::class, fn ($app) => new QueryListener(
@@ -91,16 +104,23 @@ final class ThudServiceProvider extends PackageServiceProvider
             $this->app->singleton($class);
         }
 
+        $this->app->singleton(Evaluator::class);
+
         $this->app->singleton(QueueHooks::class, fn ($app) => new QueueHooks(
             $app->make(RunStack::class),
             $app->make(Buffer::class),
             $app->make(FlushOnTerminate::class),
-            self::stringList(self::config($app, 'thud.ignore_jobs')),
+            $app->make(Evaluator::class),
+            $app,
+            // Thud's own verification jobs are never recorded as runs.
+            [...self::stringList(self::config($app, 'thud.ignore_jobs')), VerifyOutcome::class],
         ));
     }
 
     public function packageBooted(): void
     {
+        ScheduleMacros::register();
+
         // The alias must exist even when disabled, or routes using it would break.
         Safely::run(fn () => $this->app->make(Router::class)->aliasMiddleware('thud', WebhookMiddleware::class), key: 'boot');
 
