@@ -1,0 +1,64 @@
+{
+    "name": "thud/laravel",
+    "description": "Catch Laravel jobs, scheduled commands and webhooks that report success but didn't do their work.",
+    "keywords": [
+        "laravel",
+        "queue",
+        "jobs",
+        "monitoring",
+        "scheduler",
+        "webhooks",
+        "thud"
+    ],
+    "license": "MIT",
+    "type": "library",
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+        "spatie/laravel-package-tools": "^1.16"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.18",
+        "orchestra/testbench": "^9.0 || ^10.0 || ^11.0",
+        "pestphp/pest": "^3.0 || ^4.0",
+        "pestphp/pest-plugin-arch": "^3.0 || ^4.0",
+        "pestphp/pest-plugin-laravel": "^3.0 || ^4.0",
+        "phpstan/phpstan-strict-rules": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Thud\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Thud\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest",
+        "analyse": "vendor/bin/phpstan analyse --memory-limit=1G",
+        "format": "vendor/bin/pint",
+        "lint": "vendor/bin/pint --test"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Thud\\ThudServiceProvider"
+            ],
+            "aliases": {
+                "Thud": "Thud\\Facades\\Thud"
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
