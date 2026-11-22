@@ -38,9 +38,6 @@ return [
     // Class names to skip entirely.
     'ignore_jobs' => [],
 
-    // Class names allowed to do nothing on some runs.
-    'may_be_empty' => [],
-
     /*
     | Runs are recorded but never sent while the app runs its own test suite (so a THUD_TOKEN
     | in .env can't pollute your baselines). Use Thud::fake() to assert on runs in tests.
