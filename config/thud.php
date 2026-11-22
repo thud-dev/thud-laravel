@@ -44,6 +44,16 @@ return [
     */
     'send_in_tests' => false,
 
+    /*
+    | Missed-run checks for scheduled tasks. On by default for every task (thud:sync sends them
+    | on deploy), except tasks with when()/skip()/between() conditions or sub-minute frequencies,
+    | which need ->expectRun(). ->expectRun(graceMinutes: 30) sets a task's grace period;
+    | ->dontWatch() leaves one out.
+    */
+    'watch_scheduled_tasks' => env('THUD_WATCH_SCHEDULED_TASKS', true),
+
+    'scheduled_grace_minutes' => 10,
+
     // Queue for VerifyOutcome jobs. null = the default queue.
     'verify_queue' => env('THUD_VERIFY_QUEUE'),
 

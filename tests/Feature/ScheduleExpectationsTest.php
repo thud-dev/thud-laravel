@@ -64,28 +64,58 @@ it('evaluates an artisan command\'s expectations in the child process that ran i
     expect(recordedRun('invoices:send')['expectations'])->toBe([['label' => 'Invoices mailed', 'result' => 'passed']]);
 });
 
-it('syncs the tasks registered with expectRun()', function (): void {
+it('syncs every scheduled task, with ->expectRun() setting the grace period', function (): void {
     config(['app.timezone' => 'UTC']);
     $schedule = app(Schedule::class);
     $schedule->command('invoices:send')->dailyAt('06:00')->timezone('Africa/Lagos')->expectRun();
     $schedule->command('reports:weekly')->weeklyOn(1, '09:00')->expectRun(graceMinutes: 30);
-    $schedule->command('cache:prune')->hourly(); // not watched
+    $schedule->command('cache:prune')->hourly(); // watched by default
 
-    $this->artisan('thud:sync')->assertExitCode(0)->expectsOutputToContain('2 scheduled tasks synced');
+    $this->artisan('thud:sync')->assertExitCode(0)->expectsOutputToContain('3 scheduled tasks synced');
 
     Http::assertSent(function ($request): bool {
         $body = json_decode((string) gzdecode($request->body()), true);
+        $tasks = collect($body['tasks'])->keyBy('name');
 
         return $request->url() === 'https://ingest.thud.test/v1/schedule'
-            && count($body['tasks']) === 2
-            && $body['tasks'][0]['name'] === 'invoices:send'
-            && $body['tasks'][0]['cron'] === '0 6 * * *'
-            && $body['tasks'][0]['timezone'] === 'Africa/Lagos'
-            && $body['tasks'][0]['grace_minutes'] === 10
-            && str_starts_with($body['tasks'][0]['mutex'], 'framework')
-            && $body['tasks'][1]['timezone'] === 'UTC'
-            && $body['tasks'][1]['grace_minutes'] === 30;
+            && $tasks->count() === 3
+            && $tasks['invoices:send']['cron'] === '0 6 * * *'
+            && $tasks['invoices:send']['timezone'] === 'Africa/Lagos'
+            && $tasks['invoices:send']['grace_minutes'] === 10
+            && str_starts_with($tasks['invoices:send']['mutex'], 'framework')
+            && $tasks['reports:weekly']['timezone'] === 'UTC'
+            && $tasks['reports:weekly']['grace_minutes'] === 30
+            && $tasks['cache:prune']['grace_minutes'] === 10;
     });
+});
+
+it('leaves out tasks that can skip runs on purpose, unless they use ->expectRun(), and ->dontWatch() tasks', function (): void {
+    $schedule = app(Schedule::class);
+    $schedule->command('always:runs')->hourly();
+    $schedule->command('weekdays:only')->hourly()->when(fn () => true);
+    $schedule->command('office:hours')->hourly()->between('09:00', '17:00');
+    $schedule->command('conditional:but:watched')->hourly()->skip(fn () => false)->expectRun(graceMinutes: 5);
+    $schedule->command('every:ten:seconds')->everyTenSeconds();
+    $schedule->command('noisy:task')->hourly()->dontWatch();
+
+    $this->artisan('thud:sync')
+        ->expectsOutputToContain('weekdays:only')
+        ->assertExitCode(0);
+
+    Http::assertSent(function ($request): bool {
+        $names = collect(json_decode((string) gzdecode($request->body()), true)['tasks'])->pluck('name')->sort()->values()->all();
+
+        return $names === ['always:runs', 'conditional:but:watched'];
+    });
+});
+
+it('only syncs ->expectRun() tasks when watching every task is turned off', function (): void {
+    config(['thud.watch_scheduled_tasks' => false]);
+    $schedule = app(Schedule::class);
+    $schedule->command('invoices:send')->daily()->expectRun();
+    $schedule->command('cache:prune')->hourly();
+
+    $this->artisan('thud:sync')->assertExitCode(0)->expectsOutputToContain('1 scheduled task synced');
 });
 
 it('shows the tasks without sending them on a dry run', function (): void {

@@ -9,8 +9,8 @@ use Thud\Schedule\ScheduleRegistry;
 use Thud\Transport\Transport;
 
 /**
- * php artisan thud:sync: sends every task registered with ->expectRun() so Thud can tell you
- * when one doesn't run. Run it on deploy.
+ * php artisan thud:sync: sends your scheduled tasks (every task by default) so Thud can tell
+ * you when one doesn't run. Run it on deploy.
  */
 final class SyncCommand extends Command
 {
@@ -23,12 +23,18 @@ final class SyncCommand extends Command
         $tasks = $registry->watchedTasks();
 
         if ($tasks === []) {
-            $this->components->warn('No scheduled task uses ->expectRun(). Nothing to watch.');
+            $this->components->warn('No scheduled tasks to watch.');
         } else {
             $this->table(
                 ['Task', 'Schedule', 'Timezone', 'Grace'],
                 array_map(fn (array $task) => [$task['name'], $task['cron'], $task['timezone'], $task['grace_minutes'].' min'], $tasks),
             );
+        }
+
+        $conditional = $registry->unwatchedConditionalTasks();
+
+        if ($conditional !== []) {
+            $this->components->info('Not watched, because they can skip runs on purpose: '.implode(', ', $conditional).'. Add ->expectRun() to watch them.');
         }
 
         if ((bool) $this->option('dry-run')) {

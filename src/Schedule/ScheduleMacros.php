@@ -27,6 +27,14 @@ final class ScheduleMacros
             return $this;
         });
 
+        // Leave a task out of missed-run checks (every task is watched by default).
+        Event::macro('dontWatch', function (): Event {
+            /** @var Event $this */
+            app(ScheduleRegistry::class)->dontWatch($this);
+
+            return $this;
+        });
+
         Event::macro('expect', function (Expectation $expectation): Event {
             /** @var Event $this */
             app(ScheduleRegistry::class)->expect($this, $expectation);

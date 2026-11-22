@@ -98,7 +98,13 @@ class ActivateSubscription implements ShouldQueue
 
 ## Scheduled tasks
 
-Every scheduled task is recorded. Two macros add more:
+Every scheduled task is recorded and, once you run `php artisan thud:sync`, watched. Add it to your deploy script:
+
+```bash
+php artisan thud:sync   # --dry-run lists the tasks without sending them
+```
+
+Thud then tells you when a task **didn't run** within 10 minutes of when it was due (even if cron has stopped altogether, because the check runs on Thud's side) and when a task **failed** (the scheduler only logs its exception). Missed runs are worked out in each task's own timezone, so daylight-saving changes are handled.
 
 ```php
 use Illuminate\Support\Facades\Schedule;
@@ -106,17 +112,13 @@ use Thud\Expectations\Expect;
 
 Schedule::command('invoices:send')
     ->dailyAt('06:00')
-    ->expectRun()          // alert if it hasn't run 10 minutes after it was due
+    ->expectRun(graceMinutes: 30)   // allow 30 minutes instead of 10
     ->expect(Expect::atLeast(1)->mailsSent(InvoiceMail::class));
+
+Schedule::command('cache:warm')->everyFiveMinutes()->dontWatch();
 ```
 
-`->expectRun(graceMinutes: 30)` changes the grace period. Thud learns which tasks to watch from:
-
-```bash
-php artisan thud:sync   # add this to your deploy script; --dry-run lists without sending
-```
-
-Missed runs are worked out in the task's own timezone, so daylight-saving changes are handled. Artisan commands run in a separate process, and their expectations are checked in that process.
+Tasks with `when()`, `skip()` or `between()` conditions, and sub-minute tasks, can skip runs on purpose, so they're only watched with `->expectRun()`. Set `THUD_WATCH_SCHEDULED_TASKS=false` to watch only tasks marked with `->expectRun()`. Artisan commands run in a separate process, and their expectations are checked in that process.
 
 ## Webhooks
 
@@ -212,6 +214,8 @@ Expectations and reconciliation run inside your app, against your own database, 
 | `ignore_jobs` | | `[]` | Job classes to skip entirely |
 | `send_in_tests` | | `false` | Send data while your test suite runs |
 | `verify_queue` | `THUD_VERIFY_QUEUE` | default queue | Queue for delayed checks |
+| `watch_scheduled_tasks` | `THUD_WATCH_SCHEDULED_TASKS` | `true` | Watch every scheduled task for missed runs |
+| `scheduled_grace_minutes` | | `10` | Default grace period for missed runs |
 | `payments` | | `[]` | See [Payment reconciliation](#payment-reconciliation) |
 | `reconcile_at` | | `03:15` | Nightly reconciliation time, or `null` |
 
@@ -219,7 +223,7 @@ Expectations and reconciliation run inside your app, against your own database, 
 | --- | --- |
 | `thud:install --token=` | Publish the config, save the token, test the connection |
 | `thud:test` | Test the connection |
-| `thud:sync` | Send tasks registered with `->expectRun()` (run on deploy) |
+| `thud:sync` | Send your scheduled tasks so missed runs are caught (run on deploy) |
 | `thud:reconcile {provider?} --hours=48` | Reconcile payments |
 
 ## Development
