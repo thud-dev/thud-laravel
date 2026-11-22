@@ -23,7 +23,7 @@ final class ReconcileCommand extends Command
     public const PLAN_BLOCK_KEY = 'thud:reconcile:needs-plan';
 
     protected $signature = 'thud:reconcile
-        {provider? : stripe or paystack (default: every configured provider)}
+        {provider? : stripe, paystack, paddle, lemon_squeezy or flutterwave (default: every configured provider)}
         {--hours=48 : How far back to check payments}';
 
     protected $description = 'Check payments and subscriptions at your payment providers against your database';

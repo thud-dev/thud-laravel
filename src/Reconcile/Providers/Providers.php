@@ -12,7 +12,7 @@ use Thud\Reconcile\Contracts\PaymentProvider;
  */
 final class Providers
 {
-    public const SUPPORTED = ['stripe', 'paystack'];
+    public const SUPPORTED = ['stripe', 'paystack', 'paddle', 'lemon_squeezy', 'flutterwave'];
 
     public function __construct(private readonly Http $http) {}
 
@@ -46,7 +46,15 @@ final class Providers
         return match ($name) {
             'stripe' => new StripeProvider($this->http, $key),
             'paystack' => new PaystackProvider($this->http, $key),
+            'paddle' => new PaddleProvider($this->http, $key, sandbox: (bool) config('thud.payments.paddle.sandbox', false)),
+            'lemon_squeezy' => new LemonSqueezyProvider($this->http, $key, self::stringOrNull(config('thud.payments.lemon_squeezy.store_id'))),
+            'flutterwave' => new FlutterwaveProvider($this->http, $key),
             default => null,
         };
+    }
+
+    private static function stringOrNull(mixed $value): ?string
+    {
+        return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
     }
 }
