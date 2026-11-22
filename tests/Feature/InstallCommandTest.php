@@ -28,3 +28,9 @@ it('rejects something that is not a Thud token', function (): void {
 
     expect(file_get_contents($this->envDir.'/.env'))->toContain('THUD_TOKEN=old');
 });
+
+it('rejects a token with characters a Thud token never has', function (): void {
+    $this->artisan('thud:install', ['--token' => 'thd_abc$1\\x'])->assertExitCode(1);
+
+    expect(file_get_contents($this->envDir.'/.env'))->toContain('THUD_TOKEN=old');
+});

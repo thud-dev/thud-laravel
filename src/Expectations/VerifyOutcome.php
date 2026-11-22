@@ -6,6 +6,7 @@ namespace Thud\Expectations;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Crypt;
 use Throwable;
 use Thud\Expectations\Concerns\HasExpectations;
 use Thud\Recording\RunContext;
@@ -18,6 +19,9 @@ use Thud\Transport\Transport;
  *
  * For a queued job it rebuilds the job from its serialized form and calls expectations() again;
  * for a scheduled task it finds the task by mutex name. Never recorded as a run itself.
+ *
+ * The job copy is encrypted with the app key, so a job's data is never stored in plain text on
+ * the queue (even when the original job isn't encrypted), and can't be tampered with there.
  */
 final class VerifyOutcome implements ShouldQueue
 {
@@ -29,13 +33,13 @@ final class VerifyOutcome implements ShouldQueue
         public readonly string $runId,
         public readonly string $label,
         public readonly int $index,
-        public readonly ?string $serializedJob = null,
+        public readonly ?string $encryptedJob = null,
         public readonly ?string $scheduleMutex = null,
     ) {}
 
     public static function forJob(string $runId, string $label, int $index, object $job): self
     {
-        return new self($runId, $label, $index, serializedJob: serialize($job));
+        return new self($runId, $label, $index, encryptedJob: Crypt::encryptString(serialize($job)));
     }
 
     public static function forSchedule(string $runId, string $label, int $index, string $mutex): self
@@ -59,8 +63,8 @@ final class VerifyOutcome implements ShouldQueue
 
     private function expectation(ScheduleRegistry $registry): ?Expectation
     {
-        if ($this->serializedJob !== null) {
-            $job = unserialize($this->serializedJob);
+        if ($this->encryptedJob !== null) {
+            $job = unserialize(Crypt::decryptString($this->encryptedJob));
 
             if (! is_object($job) || ! in_array(HasExpectations::class, class_uses_recursive($job), true) || ! method_exists($job, 'expectations')) {
                 return null;

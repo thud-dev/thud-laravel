@@ -45,7 +45,7 @@ After 20 successful runs Thud knows what a normal run does. From then on, a run 
 
 A job that legitimately does nothing on some runs (a cleanup with nothing to clean) can be marked **May be empty** on its page in the dashboard.
 
-Thud never gets in your way. Every hook is wrapped so it can't throw into your app, data is sent after the response (or after each job in a worker) with a 2-second timeout and no retries, and recording adds about 0.1 ms to a job running 100 queries.
+Thud never gets in your way. Every hook is wrapped so it can't throw into your app, data is sent after the response (or after each job in a worker) with a 2-second timeout and no retries, and recording adds about 0.1 ms to a job running 100 queries. On a webhook request, sending happens once the response has gone out, so the provider never waits, but the PHP process stays busy until it's done (at most 2 seconds if Thud is slow).
 
 ## Expectations
 
@@ -94,6 +94,7 @@ class ActivateSubscription implements ShouldQueue
 - Expectations are checked only after a successful run, and never break the job: one that throws is recorded as an error.
 - Queries run by an expectation aren't counted as the job's side effects.
 - Give each one a short `->label()`. Without one, Thud uses `ClassName::expectations()#index`.
+- A delayed check queues a copy of the job, encrypted with your `APP_KEY` (even if the job itself isn't encrypted).
 - Put delayed checks on their own queue with `THUD_VERIFY_QUEUE`. If one hasn't reported 10 minutes after it was due, it's flagged as "verification never ran".
 
 ## Scheduled tasks

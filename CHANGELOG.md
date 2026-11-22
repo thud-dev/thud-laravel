@@ -2,6 +2,12 @@
 
 All notable changes to `thud/laravel` are documented here. This project follows [Semantic Versioning](https://semver.org).
 
+## v0.2.1 - 2026-11-22
+
+- The copy of a job queued for a delayed `within()` check is now encrypted with the app key, even when the job itself isn't encrypted, and can't be tampered with on the queue. Delayed checks queued by v0.2.0 report as errors after upgrading.
+- `thud:install` only accepts tokens made of `thd_` plus letters and digits, and writes `.env` without a regex replacement.
+- README notes how sending affects webhook requests and that delayed checks need `APP_KEY`.
+
 ## v0.2.0 - 2026-11-22
 
 - Supports Laravel 9 and 10, and PHP 8.1.

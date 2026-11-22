@@ -26,6 +26,7 @@ abstract class TestCase extends Orchestra
             'database' => ':memory:',
             'prefix' => '',
         ]);
+        $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('k', 32)));
         $app['config']->set('mail.default', 'array');
         $app['config']->set('queue.default', 'sync');
         $app['config']->set('cache.default', 'array');

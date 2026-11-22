@@ -35,7 +35,7 @@ final class InstallCommand extends Command
             return self::SUCCESS;
         }
 
-        if (! str_starts_with($token, 'thd_')) {
+        if (preg_match('/^thd_[A-Za-z0-9]+$/', $token) !== 1) {
             $this->components->error('That doesn\'t look like a Thud token: tokens start with thd_.');
 
             return self::FAILURE;
@@ -56,9 +56,11 @@ final class InstallCommand extends Command
         $path = app()->environmentFilePath();
         $contents = $files->exists($path) ? $files->get($path) : '';
         $line = "{$key}={$value}";
+        $pattern = '/^'.preg_quote($key, '/').'=.*$/m';
 
-        $contents = preg_match("/^{$key}=.*$/m", $contents) === 1
-            ? (string) preg_replace("/^{$key}=.*$/m", $line, $contents)
+        // A callback, not a replacement string, so $ or \ in the value are written as they are.
+        $contents = preg_match($pattern, $contents) === 1
+            ? (string) preg_replace_callback($pattern, static fn (): string => $line, $contents)
             : rtrim($contents)."\n\n{$line}\n";
 
         $files->put($path, ltrim($contents));

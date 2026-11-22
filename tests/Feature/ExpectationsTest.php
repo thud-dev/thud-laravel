@@ -84,6 +84,33 @@ it('reports a VerifyOutcome result for the same run', function (): void {
     });
 });
 
+it('keeps the copy of the job encrypted on the queue', function (): void {
+    $orderId = orderId();
+    $verify = VerifyOutcome::forJob('01JD3Z8Q6M4Y2K9V7W5T3R1P0N', 'Order is still active', 2, new ActivateSubscription($orderId));
+
+    expect($verify->encryptedJob)->not->toContain('ActivateSubscription')
+        ->and(serialize($verify))->not->toContain('ActivateSubscription');
+});
+
+it('reports an error, without throwing, when the job copy was tampered with', function (): void {
+    // As if someone with access to the queue had swapped in their own payload.
+    $tampered = Closure::bind(
+        fn () => new VerifyOutcome('01JD3Z8Q6M4Y2K9V7W5T3R1P0N', 'Order is still active', 2, encryptedJob: base64_encode(serialize(new ActivateSubscription(1)))),
+        null,
+        VerifyOutcome::class,
+    )();
+
+    app()->call([$tampered, 'handle']);
+
+    Http::assertSent(function ($request): bool {
+        $body = json_decode((string) gzdecode($request->body()), true);
+
+        return str_ends_with($request->url(), '/results')
+            && $body['results'][0]['result'] === 'error'
+            && str_contains($body['results'][0]['message'], 'Could not rebuild the job');
+    });
+});
+
 it('records a throwing or misbehaving expectation as an error, without throwing', function (): void {
     ThrowingExpectation::dispatch();
 
