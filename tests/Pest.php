@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Http;
 use Thud\Tests\Disabled\DisabledTestCase;
 use Thud\Tests\TestCase;
 use Thud\Transport\Buffer;
+use Thud\Transport\Client;
+use Thud\Transport\Transport;
 
 uses(TestCase::class)->in('Feature');
 uses(DisabledTestCase::class)->in('Disabled');
@@ -52,4 +54,15 @@ function recordedRun(string $name): array
     expect($runs)->toHaveCount(1, "Expected exactly one run named {$name}");
 
     return $runs[0];
+}
+
+/**
+ * Points the client at its own host, so the suite's catch-all ingest fake doesn't answer first.
+ */
+function pingAnswers(int $status, array $body): void
+{
+    config(['thud.endpoint' => 'https://ping.thud.test/v1']);
+    Http::fake(['ping.thud.test/*' => Http::response($body, $status)]);
+    app()->forgetInstance(Client::class);
+    app()->forgetInstance(Transport::class);
 }

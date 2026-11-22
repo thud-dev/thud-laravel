@@ -12,8 +12,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Laravel 11 is past security support: Composer blocks it unless advisories are ignored.
-          # The override applies to these CI jobs only, never to the published package.
+          # Laravel 9, 10 and 11 are past security support: Composer blocks them unless advisories
+          # are ignored (`insecure`). The override applies to these CI jobs only, never to the package.
+          # Laravel 9 and 10 also need older test tools (`legacy`): Pest 1 and Pest 2.
+          - { php: '8.1', laravel: '9.*', testbench: '7.*', pest: '^1.23', legacy: true, insecure: true }
+          - { php: '8.2', laravel: '9.*', testbench: '7.*', pest: '^1.23', legacy: true, insecure: true }
+          - { php: '8.1', laravel: '10.*', testbench: '8.*', pest: '^2.34', legacy: true, insecure: true }
+          - { php: '8.2', laravel: '10.*', testbench: '8.*', pest: '^2.34', legacy: true, insecure: true }
+          - { php: '8.3', laravel: '10.*', testbench: '8.*', pest: '^2.34', legacy: true, insecure: true }
           - { php: '8.2', laravel: '11.*', testbench: '9.*', insecure: true }
           - { php: '8.3', laravel: '11.*', testbench: '9.*', insecure: true }
           - { php: '8.4', laravel: '11.*', testbench: '9.*', insecure: true }
@@ -36,9 +42,18 @@ jobs:
           extensions: mbstring, pdo_sqlite, zlib, redis
           coverage: none
 
-      - name: Allow Laravel 11 (CI only)
+      - name: Allow Laravel 9, 10 and 11 (CI only)
         if: matrix.insecure
         run: composer config policy.advisories.block false
+
+      - name: Use the test tools for older Laravel
+        if: matrix.legacy
+        run: |
+          composer remove --dev larastan/larastan phpstan/phpstan-strict-rules laravel/pint --no-update --no-interaction
+          composer require --dev "pestphp/pest:${{ matrix.pest }}" --no-update --no-interaction
+          if [ "${{ matrix.laravel }}" = "9.*" ]; then
+            composer remove --dev pestphp/pest-plugin-arch pestphp/pest-plugin-laravel --no-update --no-interaction
+          fi
 
       - name: Install dependencies
         run: |

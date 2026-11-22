@@ -136,16 +136,17 @@ final class ScheduleRegistry
      */
     private static function alwaysRuns(Event $event): bool
     {
-        if ($event->isRepeatable()) {
-            return false;
-        }
-
-        $conditions = Safely::run(
-            static fn () => \Closure::bind(fn (): int => count($this->filters) + count($this->rejects), $event, Event::class)(),
+        // Read through a bound closure: Laravel 9 has no sub-minute tasks, so no repeatSeconds.
+        $skipsSlots = Safely::run(
+            static fn () => \Closure::bind(
+                fn (): bool => isset($this->repeatSeconds) || count($this->filters) + count($this->rejects) > 0,
+                $event,
+                Event::class,
+            )(),
             key: 'schedule-conditions',
         );
 
-        return $conditions === 0;
+        return $skipsSlots === false;
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Thud\Recording\Listeners;
 
 use Illuminate\Mail\Events\MessageSent;
+use Illuminate\Mail\Mailable;
 use Symfony\Component\Mime\Address;
 use Thud\Recording\RunStack;
 
@@ -15,7 +16,30 @@ use Thud\Recording\RunStack;
  */
 final class MailListener
 {
+    private static bool $taggingMailables = false;
+
     public function __construct(private readonly RunStack $stack) {}
+
+    /**
+     * Laravel 11+ puts the mailable class in the message data as `__laravel_mailable`. Laravel 9 and 10
+     * don't, so add it through the view data hook, keeping any callback the app registered.
+     */
+    public static function tagMailablesOn(string $laravelVersion): void
+    {
+        if (self::$taggingMailables || version_compare($laravelVersion, '11.0.0', '>=')) {
+            return;
+        }
+
+        self::$taggingMailables = true;
+        $previous = Mailable::$viewDataCallback;
+
+        Mailable::buildViewDataUsing(static function (Mailable $mailable) use ($previous): array {
+            // @phpstan-ignore identical.alwaysFalse (documented as callable, but null until an app sets one)
+            $data = $previous === null ? [] : (array) $previous($mailable);
+
+            return [...$data, '__laravel_mailable' => $mailable::class];
+        });
+    }
 
     public function handle(MessageSent $event): void
     {

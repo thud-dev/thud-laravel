@@ -10,6 +10,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Thud\Reconcile\Contracts\PaymentProvider;
 use Thud\Reconcile\ProviderPayment;
 use Thud\Reconcile\ProviderSubscription;
+use Thud\Support\HttpRequest;
 
 /**
  * Lemon Squeezy (JSON:API), with an API key.
@@ -139,8 +140,7 @@ final class LemonSqueezyProvider implements PaymentProvider
 
     private function request(): PendingRequest
     {
-        return $this->http->createPendingRequest()
-            ->withToken($this->key)
+        return HttpRequest::withToken($this->http, $this->key)
             ->withHeaders(['Accept' => 'application/vnd.api+json', 'Content-Type' => 'application/vnd.api+json'])
             ->timeout(20)
             ->retry(2, 1000, throw: false);

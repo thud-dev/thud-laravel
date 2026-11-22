@@ -10,6 +10,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Thud\Reconcile\Contracts\PaymentProvider;
 use Thud\Reconcile\ProviderPayment;
 use Thud\Reconcile\ProviderSubscription;
+use Thud\Support\HttpRequest;
 
 /**
  * Flutterwave v3, with the secret key (only used for GETs).
@@ -117,6 +118,6 @@ final class FlutterwaveProvider implements PaymentProvider
 
     private function request(): PendingRequest
     {
-        return $this->http->createPendingRequest()->withToken($this->key)->acceptJson()->timeout(20)->retry(2, 1000, throw: false);
+        return HttpRequest::withToken($this->http, $this->key)->acceptJson()->timeout(20)->retry(2, 1000, throw: false);
     }
 }

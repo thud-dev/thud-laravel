@@ -6,6 +6,7 @@ use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Console\Events\ScheduledTaskStarting;
+use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -95,7 +96,12 @@ it('leaves out tasks that can skip runs on purpose, unless they use ->expectRun(
     $schedule->command('weekdays:only')->hourly()->when(fn () => true);
     $schedule->command('office:hours')->hourly()->between('09:00', '17:00');
     $schedule->command('conditional:but:watched')->hourly()->skip(fn () => false)->expectRun(graceMinutes: 5);
-    $schedule->command('every:ten:seconds')->everyTenSeconds();
+
+    // Sub-minute tasks arrived in Laravel 10.
+    if (method_exists(Event::class, 'everyTenSeconds')) {
+        $schedule->command('every:ten:seconds')->everyTenSeconds();
+    }
+
     $schedule->command('noisy:task')->hourly()->dontWatch();
 
     $this->artisan('thud:sync')

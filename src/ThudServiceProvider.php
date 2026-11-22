@@ -146,6 +146,7 @@ final class ThudServiceProvider extends PackageServiceProvider
         // Side effects: counted on whichever run is in flight.
         $this->listen($events, QueryExecuted::class, QueryListener::class);
         $this->listen($events, MessageSent::class, MailListener::class);
+        MailListener::tagMailablesOn($this->app->version());
         $this->listen($events, NotificationSent::class, NotificationListener::class);
         $this->listen($events, ResponseReceived::class, HttpListener::class);
         $this->listen($events, ConnectionFailed::class, HttpListener::class);

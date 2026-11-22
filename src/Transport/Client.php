@@ -8,6 +8,7 @@ use Composer\InstalledVersions;
 use Illuminate\Http\Client\Factory as Http;
 use Illuminate\Http\Client\Response;
 use Throwable;
+use Thud\Support\HttpRequest;
 use Thud\Support\Safely;
 
 /**
@@ -88,8 +89,7 @@ final class Client implements Transport
         }
 
         try {
-            $response = $this->http->createPendingRequest()
-                ->withToken($this->token)
+            $response = HttpRequest::withToken($this->http, $this->token)
                 ->acceptJson()
                 ->timeout(5)
                 ->get(rtrim($this->endpoint, '/').'/ping');
@@ -126,8 +126,7 @@ final class Client implements Transport
                 return null;
             }
 
-            $response = $this->http->createPendingRequest()
-                ->withToken((string) $this->token)
+            $response = HttpRequest::withToken($this->http, (string) $this->token)
                 ->withHeaders(['Content-Encoding' => 'gzip', 'Accept' => 'application/json'])
                 ->timeout(self::TIMEOUT_SECONDS)
                 ->connectTimeout(self::TIMEOUT_SECONDS)

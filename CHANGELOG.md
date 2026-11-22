@@ -2,6 +2,12 @@
 
 All notable changes to `thud/laravel` are documented here. This project follows [Semantic Versioning](https://semver.org).
 
+## v0.2.0 - 2026-11-22
+
+- Supports Laravel 9 and 10, and PHP 8.1.
+- Requires `guzzlehttp/guzzle` directly, since Laravel 9 doesn't install it.
+- On Laravel 9 and 10, mail is counted per mailable class (those versions don't record the class themselves).
+
 ## v0.1.0 - 2026-11-22
 
 First release.

@@ -10,6 +10,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Thud\Reconcile\Contracts\PaymentProvider;
 use Thud\Reconcile\ProviderPayment;
 use Thud\Reconcile\ProviderSubscription;
+use Thud\Support\HttpRequest;
 
 /**
  * Paystack, with the secret key (Paystack has no read-only keys; it is only used for GETs).
@@ -119,6 +120,6 @@ final class PaystackProvider implements PaymentProvider
 
     private function request(): PendingRequest
     {
-        return $this->http->createPendingRequest()->withToken($this->key)->acceptJson()->timeout(20)->retry(2, 1000, throw: false);
+        return HttpRequest::withToken($this->http, $this->key)->acceptJson()->timeout(20)->retry(2, 1000, throw: false);
     }
 }
