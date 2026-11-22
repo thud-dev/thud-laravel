@@ -41,6 +41,12 @@ return [
     // Class names allowed to do nothing on some runs.
     'may_be_empty' => [],
 
+    /*
+    | Runs are recorded but never sent while the app runs its own test suite (so a THUD_TOKEN
+    | in .env can't pollute your baselines). Use Thud::fake() to assert on runs in tests.
+    */
+    'send_in_tests' => false,
+
     // Queue for VerifyOutcome jobs. null = the default queue.
     'verify_queue' => env('THUD_VERIFY_QUEUE'),
 

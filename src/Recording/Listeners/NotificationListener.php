@@ -4,9 +4,18 @@ declare(strict_types=1);
 
 namespace Thud\Recording\Listeners;
 
+use Illuminate\Notifications\Events\NotificationSent;
+use Thud\Recording\RunStack;
+
 /**
- * Listens to NotificationSent. Counts notification_sent per notification class.
- *
- * Phase 0 stub: not implemented yet. See docs/BUILD.md.
+ * Counts sent notifications on the current run, per notification class (one per channel delivery).
  */
-final class NotificationListener {}
+final class NotificationListener
+{
+    public function __construct(private readonly RunStack $stack) {}
+
+    public function handle(NotificationSent $event): void
+    {
+        $this->stack->current()?->counter->notificationSent($event->notification::class);
+    }
+}
