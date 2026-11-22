@@ -29,6 +29,9 @@ final class ThudFake implements Transport
     /** @var list<array<string, mixed>>|null */
     private ?array $schedule = null;
 
+    /** @var list<array<string, mixed>> */
+    private array $paymentChecks = [];
+
     public function __construct(private readonly Container $container) {}
 
     public function enabled(): bool
@@ -63,6 +66,21 @@ final class ThudFake implements Transport
         $this->schedule = $tasks;
 
         return true;
+    }
+
+    public function sendPaymentCheck(array $check): array
+    {
+        $this->paymentChecks[] = $check;
+
+        return ['status' => 202];
+    }
+
+    /**
+     * @return list<array<string, mixed>> reconciliation results sent by thud:reconcile
+     */
+    public function paymentChecks(): array
+    {
+        return $this->paymentChecks;
     }
 
     public function ping(): array

@@ -63,8 +63,20 @@ return [
     |     ],
     | ],
     |
-    | paystack, paddle, lemon_squeezy and flutterwave use the same shape.
+    | 'paystack' => [
+    |     'key' => env('THUD_PAYSTACK_SECRET_KEY'),
+    |     'map' => [
+    |         'payments' => ['model' => App\Models\Payment::class, 'key' => 'paystack_reference', 'paid' => ['status' => 'paid']],
+    |         'subscriptions' => ['model' => App\Models\Subscription::class, 'key' => 'paystack_subscription_code', 'active' => ['status' => 'active']],
+    |     ],
+    | ],
+    |
+    | Condition values: 'not_null', 'null', a list of allowed values, or an exact value.
+    | Leave out 'payments' or 'subscriptions' to skip that check.
     */
     'payments' => [],
+
+    // When thud:reconcile runs each night (app timezone), once a provider is configured. null = never.
+    'reconcile_at' => '03:15',
 
 ];

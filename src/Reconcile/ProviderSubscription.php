@@ -5,8 +5,13 @@ declare(strict_types=1);
 namespace Thud\Reconcile;
 
 /**
- * An active subscription as reported by a provider: ref, customerRef, status.
- *
- * Phase 0 stub: not implemented yet. See docs/BUILD.md.
+ * An active subscription as a provider reports it.
  */
-final class ProviderSubscription {}
+final class ProviderSubscription
+{
+    public function __construct(
+        public readonly string $ref,
+        public readonly ?string $customerRef,
+        public readonly string $status,
+    ) {}
+}

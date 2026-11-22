@@ -72,6 +72,15 @@ final class Client implements Transport
         return $this->post('/schedule', ['tasks' => $tasks])?->successful() ?? false;
     }
 
+    public function sendPaymentCheck(array $check): array
+    {
+        if (! $this->canSend()) {
+            return ['status' => null];
+        }
+
+        return ['status' => $this->post('/payments/checks', $check)?->status()];
+    }
+
     public function ping(): array
     {
         if ($this->token === null || $this->token === '') {

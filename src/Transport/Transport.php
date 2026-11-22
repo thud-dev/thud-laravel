@@ -30,6 +30,15 @@ interface Transport
     public function sendSchedule(array $tasks): bool;
 
     /**
+     * One reconciliation result (POST /v1/payments/checks). Returns the HTTP status, or null
+     * when nothing could be sent.
+     *
+     * @param  array<string, mixed>  $check
+     * @return array{status: int|null}
+     */
+    public function sendPaymentCheck(array $check): array;
+
+    /**
      * Checks the token. Returns the app's name and environment, or an error message.
      *
      * @return array{ok: bool, app?: string, environment?: string, error?: string}

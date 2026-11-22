@@ -11,6 +11,7 @@ use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Console\Events\ScheduledTaskSkipped;
 use Illuminate\Console\Events\ScheduledTaskStarting;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
@@ -37,6 +38,8 @@ use Thud\Expectations\VerifyOutcome;
 use Thud\Hooks\QueueHooks;
 use Thud\Hooks\ScheduleHooks;
 use Thud\Hooks\WebhookMiddleware;
+use Thud\Reconcile\Providers\Providers;
+use Thud\Reconcile\ReconcileCommand;
 use Thud\Recording\Listeners\CacheListener;
 use Thud\Recording\Listeners\HttpListener;
 use Thud\Recording\Listeners\JobDispatchListener;
@@ -67,7 +70,7 @@ final class ThudServiceProvider extends PackageServiceProvider
         $package
             ->name('thud')
             ->hasConfigFile()
-            ->hasCommands([InstallCommand::class, SyncCommand::class, TestCommand::class]);
+            ->hasCommands([InstallCommand::class, SyncCommand::class, TestCommand::class, ReconcileCommand::class]);
     }
 
     public function packageRegistered(): void
@@ -127,6 +130,8 @@ final class ThudServiceProvider extends PackageServiceProvider
         if (! $this->enabled()) {
             return;
         }
+
+        $this->scheduleReconciliation();
 
         Safely::run(function (): void {
             $this->registerListeners($this->app->make(Dispatcher::class));
@@ -195,6 +200,22 @@ final class ThudServiceProvider extends PackageServiceProvider
             } catch (\Throwable $e) {
                 Safely::log(class_basename($event), $e->getMessage());
             }
+        });
+    }
+
+    /**
+     * Runs thud:reconcile nightly once a payment provider is configured (config thud.reconcile_at).
+     */
+    private function scheduleReconciliation(): void
+    {
+        $at = self::config($this->app, 'thud.reconcile_at', '03:15');
+
+        if (! is_string($at) || $at === '' || Providers::configured() === []) {
+            return;
+        }
+
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) use ($at): void {
+            Safely::run(fn () => $schedule->command('thud:reconcile')->dailyAt($at)->withoutOverlapping(), key: 'schedule');
         });
     }
 
