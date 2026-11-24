@@ -37,6 +37,15 @@ final class SyncCommand extends Command
             $this->components->info('Not watched, because they can skip runs on purpose: '.implode(', ', $conditional).'. Add ->expectRun() to watch them.');
         }
 
+        $unnamed = array_values(array_filter(
+            [...array_column($tasks, 'name'), ...$conditional],
+            static fn (string $name): bool => str_starts_with($name, 'Closure at '),
+        ));
+
+        if ($unnamed !== []) {
+            $this->components->warn('Unnamed closures are named after their file and line, so moving the code loses their history and can look like a missed run: '.implode(', ', $unnamed).". Add ->name('...') to each.");
+        }
+
         if ((bool) $this->option('dry-run')) {
             return self::SUCCESS;
         }

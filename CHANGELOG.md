@@ -2,6 +2,10 @@
 
 All notable changes to `thud/laravel` are documented here. This project follows [Semantic Versioning](https://semver.org).
 
+## v0.2.2 - 2026-11-24
+
+- `thud:sync` warns about unnamed scheduled closures. They're named after their file and line, so moving the code loses their history and can look like a missed run; add `->name('...')` to each.
+
 ## v0.2.1 - 2026-11-22
 
 - The copy of a job queued for a delayed `within()` check is now encrypted with the app key, even when the job itself isn't encrypted, and can't be tampered with on the queue. Delayed checks queued by v0.2.0 report as errors after upgrading.

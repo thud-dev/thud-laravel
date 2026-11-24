@@ -124,6 +124,16 @@ it('only syncs ->expectRun() tasks when watching every task is turned off', func
     $this->artisan('thud:sync')->assertExitCode(0)->expectsOutputToContain('1 scheduled task synced');
 });
 
+it('warns about unnamed closures, whose names change when the code moves', function (): void {
+    $schedule = app(Schedule::class);
+    $schedule->call(fn () => null)->hourly();
+    $schedule->call(fn () => null)->hourly()->name('prune-exports');
+
+    $this->artisan('thud:sync', ['--dry-run' => true])
+        ->expectsOutputToContain('Unnamed closures are named after their file and line')
+        ->assertExitCode(0);
+});
+
 it('shows the tasks without sending them on a dry run', function (): void {
     app(Schedule::class)->command('invoices:send')->daily()->expectRun();
 
