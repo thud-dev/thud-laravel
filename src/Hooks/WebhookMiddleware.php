@@ -46,13 +46,21 @@ final class WebhookMiddleware
         try {
             $response = $next($request);
         } catch (Throwable $e) {
-            Safely::run(fn () => $this->end($request, $run, 500), key: 'webhook');
+            Safely::run(function () use ($request, $run, $e): void {
+                $run->failWith($e);
+                $this->end($request, $run, 500);
+            }, key: 'webhook');
 
             throw $e;
         }
 
         $status = $response instanceof Response ? $response->getStatusCode() : 200;
-        Safely::run(fn () => $this->end($request, $run, $status), key: 'webhook');
+        Safely::run(function () use ($request, $run, $status, $response): void {
+            // Laravel's handler turns a crash into a 500 response and keeps the exception on it.
+            $exception = is_object($response) && property_exists($response, 'exception') ? $response->exception : null;
+            $run->failWith($exception instanceof Throwable ? $exception : null);
+            $this->end($request, $run, $status);
+        }, key: 'webhook');
 
         return $response;
     }

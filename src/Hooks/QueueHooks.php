@@ -11,6 +11,8 @@ use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Queue\Jobs\SyncJob;
+use Throwable;
 use Thud\Expectations\Concerns\HasExpectations;
 use Thud\Expectations\Evaluator;
 use Thud\Expectations\VerifyOutcome;
@@ -45,10 +47,19 @@ final class QueueHooks
         $this->ignoredJobs = array_fill_keys($ignoredJobs, true);
     }
 
+    /** The key Thud adds to every queued job's payload, holding the run that queued it. */
+    public const PARENT_KEY = 'thud_parent_run_id';
+
     public function processing(JobProcessing $event): void
     {
         $job = $event->job;
         $name = $job->resolveName();
+
+        // The sync driver never fires JobQueued: a job it runs inline was dispatched by the run
+        // that's in flight, so count it there, as a real queue would.
+        if ($job instanceof SyncJob) {
+            $this->stack->current()?->counter->jobDispatched($name);
+        }
 
         $run = new RunContext(
             RunContext::TYPE_JOB,
@@ -58,6 +69,8 @@ final class QueueHooks
         );
         $run->queue = $job->getQueue();
         $run->attempt = max(1, $job->attempts());
+        $parent = $job->payload()[self::PARENT_KEY] ?? null;
+        $run->parentRunId = is_string($parent) && $parent !== '' ? substr($parent, 0, 26) : null;
 
         $this->stack->push($run);
     }
@@ -75,21 +88,35 @@ final class QueueHooks
 
     public function failed(JobFailed $event): void
     {
-        $this->end($event->job, RunContext::STATUS_FAILED);
+        $this->end($event->job, RunContext::STATUS_FAILED, $event->exception);
     }
 
     public function exceptionOccurred(JobExceptionOccurred $event): void
     {
-        $this->end($event->job, RunContext::STATUS_FAILED);
+        $this->end($event->job, RunContext::STATUS_FAILED, $event->exception);
     }
 
-    private function end(Job $job, string $status): void
+    /**
+     * Payload hook for every queued job: the ID of the run that's queuing it, if any.
+     *
+     * @return array<string, string>
+     */
+    public static function parentPayload(RunStack $stack): array
+    {
+        $run = $stack->current();
+
+        return $run === null ? [] : [self::PARENT_KEY => $run->runId];
+    }
+
+    private function end(Job $job, string $status, ?Throwable $exception = null): void
     {
         $run = $this->stack->popOwnedBy($job);
 
         if ($run === null) {
             return;
         }
+
+        $run->failWith($exception);
 
         if ($status === RunContext::STATUS_SUCCEEDED && $run->recordable) {
             $this->evaluateExpectations($run, $job);

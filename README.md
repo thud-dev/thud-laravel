@@ -194,11 +194,11 @@ Without the fake, Thud records in your test suite but never sends, so a `THUD_TO
 
 Thud is built so your customers' data never leaves your servers.
 
-**Sent, for each run:** the job class, task or route name and queue; status, start time, duration and attempt; counts of rows written, mails, notifications, HTTP calls, cache writes and jobs dispatched; class names of mails, notifications and dispatched jobs; the **hosts** of HTTP calls with their status class; expectation labels with pass, fail or error and a short message such as "No WelcomeMail was sent"; for payment webhooks, the event ID, type and your app's response status.
+**Sent, for each run:** the job class, task or route name and queue; status, start time, duration and attempt; for a failed run, the exception's class name (never its message); the ID of the run that queued a job; counts of rows written, mails, notifications, HTTP calls, cache writes and jobs dispatched; class names of mails, notifications and dispatched jobs; the **hosts** of HTTP calls with their status class; expectation labels with pass, fail or error and a short message such as "No WelcomeMail was sent"; for payment webhooks, the event ID, type and your app's response status.
 
 **Sent, for payment reconciliation:** the provider, time window and number of records checked, and for each gap its type, the provider's reference, the customer reference and a timestamp.
 
-**Never sent:** model attributes, query bindings, email addresses (compared as hashes), request or webhook payloads, URL paths or query strings, amounts, card details or names.
+**Never sent:** exception messages or stack traces, model attributes, query bindings, email addresses (compared as hashes), request or webhook payloads, URL paths or query strings, amounts, card details or names.
 
 Expectations and reconciliation run inside your app, against your own database, with your own keys. Thud's servers never connect to your database or your payment provider.
 

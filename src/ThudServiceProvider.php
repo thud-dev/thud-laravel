@@ -12,6 +12,7 @@ use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Console\Events\ScheduledTaskSkipped;
 use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Container\Container;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
@@ -27,6 +28,7 @@ use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\JobQueued;
 use Illuminate\Queue\Events\Looping;
+use Illuminate\Queue\Queue;
 use Illuminate\Routing\Router;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -139,6 +141,24 @@ final class ThudServiceProvider extends PackageServiceProvider
         }, key: 'boot');
     }
 
+    /**
+     * Adds the queuing run's ID to each queued job's payload, so the job's own run can point back
+     * to it. The hook reads whichever app is current, so registering it again on a later boot
+     * only repeats the same key.
+     */
+    private static function tagQueuedJobsWithParent(): void
+    {
+        Queue::createPayloadUsing(static function (): array {
+            $payload = Safely::run(
+                static fn (): array => QueueHooks::parentPayload(Container::getInstance()->make(RunStack::class)),
+                [],
+                'parent-payload',
+            );
+
+            return is_array($payload) ? $payload : [];
+        });
+    }
+
     private function registerListeners(Dispatcher $events): void
     {
         $config = $this->app->make(Repository::class);
@@ -152,6 +172,7 @@ final class ThudServiceProvider extends PackageServiceProvider
         $this->listen($events, ConnectionFailed::class, HttpListener::class);
         $this->listen($events, KeyWritten::class, CacheListener::class);
         $this->listen($events, JobQueued::class, JobDispatchListener::class);
+        self::tagQueuedJobsWithParent();
 
         // Every worker loop happens between jobs, which is when a worker flushes.
         $this->listen($events, Looping::class, FlushOnTerminate::class, 'workerLooping');

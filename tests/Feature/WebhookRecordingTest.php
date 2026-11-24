@@ -70,13 +70,14 @@ it('records a crashing handler as failed with status 500', function (): void {
 
     expect($run['status'])->toBe('failed')
         ->and($run['http_status'])->toBe(500)
-        ->and($run['provider_event'])->toBeNull();
+        ->and($run['provider_event'])->toBeNull()
+        ->and($run['exception'])->toBe(RuntimeException::class);
 });
 
 it('records a 4xx response as failed', function (): void {
     $this->postJson('/rejected/webhook', ['id' => 'evt_2', 'type' => 'customer.created'])->assertStatus(400);
 
-    expect(recordedRun('rejected.webhook')['status'])->toBe('failed');
+    expect(recordedRun('rejected.webhook'))->toMatchArray(['status' => 'failed', 'exception' => null]); // a 4xx throws nothing
 });
 
 it('reads the event reference for every supported provider', function (string $provider, array $payload, ?array $expected): void {

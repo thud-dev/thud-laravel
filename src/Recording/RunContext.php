@@ -6,6 +6,7 @@ namespace Thud\Recording;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * One in-flight run: a queued job, a scheduled task or a webhook request.
@@ -40,6 +41,12 @@ final class RunContext
     public ?array $providerEvent = null;
 
     public ?int $httpStatus = null;
+
+    /** The class of the exception a failed run threw: never its message, which can hold user data. */
+    public ?string $exception = null;
+
+    /** The run that queued this job, so the dashboard can link parent and child. */
+    public ?string $parentRunId = null;
 
     /** @var list<array{label: string, result: string, message?: string, due_at?: string}> */
     public array $expectations = [];
@@ -77,6 +84,13 @@ final class RunContext
         $this->durationMs = (int) round((hrtime(true) - $this->startedAtNs) / 1_000_000);
     }
 
+    public function failWith(?Throwable $exception): void
+    {
+        if ($exception !== null && $this->exception === null) {
+            $this->exception = substr($exception::class, 0, 255);
+        }
+    }
+
     public function isFinished(): bool
     {
         return $this->durationMs !== null;
@@ -107,6 +121,8 @@ final class RunContext
             'breakdown' => (object) $this->counter->breakdown(),
             'expectations' => $this->expectations,
             'provider_event' => $this->providerEvent,
+            'exception' => $this->status === self::STATUS_FAILED ? $this->exception : null,
+            'parent_run_id' => $this->parentRunId,
         ];
 
         if ($this->type === self::TYPE_WEBHOOK) {

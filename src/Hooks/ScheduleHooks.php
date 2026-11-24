@@ -107,12 +107,14 @@ final class ScheduleHooks
             $handoff = $this->handedOff[spl_object_id($task)];
             unset($this->handedOff[spl_object_id($task)]);
             self::setEnv(null);
-            $this->record(new RunContext(RunContext::TYPE_SCHEDULED, $handoff['name'], runId: $handoff['id']), RunContext::STATUS_FAILED);
+            $run = new RunContext(RunContext::TYPE_SCHEDULED, $handoff['name'], runId: $handoff['id']);
+            $run->failWith($event->exception);
+            $this->record($run, RunContext::STATUS_FAILED);
 
             return;
         }
 
-        $this->end($task, RunContext::STATUS_FAILED);
+        $this->end($task, RunContext::STATUS_FAILED, exception: $event->exception);
     }
 
     public function skipped(ScheduledTaskSkipped $event): void
@@ -223,13 +225,15 @@ final class ScheduleHooks
         return isset($this->handedOff[spl_object_id($task)]);
     }
 
-    private function end(object $owner, string $status, ?Event $task = null): void
+    private function end(object $owner, string $status, ?Event $task = null, ?\Throwable $exception = null): void
     {
         $run = $this->stack->popOwnedBy($owner);
 
         if ($run === null) {
             return;
         }
+
+        $run->failWith($exception);
 
         if ($status === RunContext::STATUS_SUCCEEDED && $task !== null) {
             $this->evaluateExpectations($run, $task);

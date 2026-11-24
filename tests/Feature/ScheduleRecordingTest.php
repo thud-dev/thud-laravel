@@ -51,7 +51,7 @@ it('records a failing scheduled callback as failed', function (): void {
 
     $this->artisan('schedule:run');
 
-    expect(recordedRun('exports:nightly')['status'])->toBe('failed');
+    expect(recordedRun('exports:nightly'))->toMatchArray(['status' => 'failed', 'exception' => RuntimeException::class]);
 });
 
 it('records a task whose filters fail as skipped', function (): void {

@@ -2,6 +2,12 @@
 
 All notable changes to `thud/laravel` are documented here. This project follows [Semantic Versioning](https://semver.org).
 
+## v0.3.0 - 2026-11-24
+
+- A failed run sends its exception's class name (such as `TypeError`), never its message or stack trace. This includes webhooks whose crash Laravel turned into a 500 response.
+- Each queued job carries the ID of the run that queued it (`thud_parent_run_id` in the job payload), and its own run sends it as `parent_run_id`, so the dashboard can link parent and child.
+- A job run inline by the `sync` driver counts as a job dispatched by the run that dispatched it, as it would on a real queue.
+
 ## v0.2.2 - 2026-11-24
 
 - `thud:sync` warns about unnamed scheduled closures. They're named after their file and line, so moving the code loses their history and can look like a missed run; add `->name('...')` to each.

@@ -54,14 +54,16 @@ it('sends the exact run shape from the ingest contract', function (): void {
 
     expect(array_keys($run))->toBe([
         'run_id', 'type', 'name', 'queue', 'status', 'started_at', 'duration_ms',
-        'attempt', 'metrics', 'breakdown', 'expectations', 'provider_event',
+        'attempt', 'metrics', 'breakdown', 'expectations', 'provider_event', 'exception', 'parent_run_id',
     ])
         ->and($run['run_id'])->toMatch('/^[0-9A-HJKMNP-TV-Z]{26}$/')
         ->and($run['started_at'])->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/')
         ->and($run['duration_ms'])->toBeInt()
         ->and(array_keys($run['metrics']))->toBe(SideEffectCounter::METRICS)
         ->and($run['expectations'])->toBe([])
-        ->and($run['provider_event'])->toBeNull();
+        ->and($run['provider_event'])->toBeNull()
+        ->and($run['exception'])->toBeNull()
+        ->and($run['parent_run_id'])->toBeNull();
 });
 
 it('never records addresses, URL paths or query strings', function (): void {
@@ -95,6 +97,11 @@ it('gives a nested dispatchSync job its own run without inflating the parent', f
     expect($parent['metrics']['db_insert'])->toBe(1)
         ->and($child['metrics']['db_insert'])->toBe(2)
         ->and($child['run_id'])->not->toBe($parent['run_id'])
+        // The sync driver fires no JobQueued, so the inline child is counted as the parent's dispatch.
+        ->and($parent['metrics']['jobs_dispatched'])->toBe(1)
+        ->and(((array) $parent['breakdown'])['jobs'])->toBe([ChildJob::class => 1])
+        ->and($child['parent_run_id'])->toBe($parent['run_id'])
+        ->and($parent['parent_run_id'])->toBeNull()
         // The child finishes first.
         ->and(array_column(recordedRuns(), 'name'))->toBe([ChildJob::class, ParentJob::class]);
 });
@@ -105,7 +112,10 @@ it('records a throwing job once, as failed', function (): void {
     $run = recordedRun(FailingJob::class);
 
     expect($run['status'])->toBe('failed')
-        ->and($run['metrics']['db_insert'])->toBe(1);
+        ->and($run['metrics']['db_insert'])->toBe(1)
+        // The class only: messages can hold user data.
+        ->and($run['exception'])->toBe(RuntimeException::class)
+        ->and(json_encode($run))->not->toContain('Boom');
 });
 
 it('counts queued jobs but not the queue table writes behind them', function (): void {
@@ -116,7 +126,9 @@ it('counts queued jobs but not the queue table writes behind them', function ():
     expect(DB::table('jobs')->count())->toBe(1)
         ->and($run['metrics']['jobs_dispatched'])->toBe(1)
         ->and($run['metrics']['db_insert'])->toBe(0)
-        ->and(((array) $run['breakdown'])['jobs'])->toBe([ChildJob::class => 1]);
+        ->and(((array) $run['breakdown'])['jobs'])->toBe([ChildJob::class => 1])
+        // The queued job carries the run that queued it, for the child's own run to point back.
+        ->and(json_decode((string) DB::table('jobs')->value('payload'), true)['thud_parent_run_id'])->toBe($run['run_id']);
 });
 
 it('ignores writes to the jobs table when a worker runs the database queue', function (): void {
