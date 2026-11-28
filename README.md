@@ -39,7 +39,7 @@ Set `THUD_ENABLED=false` to turn Thud off completely: no listeners are registere
 
 With no code changes, Thud records every queued job, scheduled task and webhook request (routes using the `thud` middleware): rows inserted, updated and deleted, mails and notifications sent, outgoing HTTP calls, cache writes, jobs dispatched, duration and status. Writes to queue and framework tables (`jobs`, `cache`, `sessions`…) are ignored.
 
-After 20 successful runs Thud knows what a normal run does. From then on, a run that **succeeds but does nothing**, or far less than usual, becomes a finding:
+After 5 successful runs Thud knows what a normal run does (a nightly job, after 5 nights). From then on, a run that **succeeds but does nothing**, or far less than usual, becomes a finding:
 
 > `SendDailyDigest` succeeded but sent 0 mails (usually about 300)
 
