@@ -194,9 +194,9 @@ Without the fake, Thud records in your test suite but never sends, so a `THUD_TO
 
 Thud is built so your customers' data never leaves your servers.
 
-**Sent, for each run:** the job class, task or route name and queue; status, start time, duration and attempt; for a failed run, the exception's class name (never its message); the ID of the run that queued a job; counts of rows written, mails, notifications, HTTP calls, cache writes and jobs dispatched; class names of mails, notifications and dispatched jobs; the **hosts** of HTTP calls with their status class; expectation labels with pass, fail or error and a short message such as "No WelcomeMail was sent"; for payment webhooks, the event ID, type and your app's response status.
+**Sent, for each run:** the job class, task or route name and queue; status, start time, duration and attempt; for a failed run, the exception's class name (never its message); the ID of the run that queued a job; counts of rows written, mails, notifications, HTTP calls, cache writes and jobs dispatched; class names of mails, notifications and dispatched jobs; the names of the tables written to, with how many inserts, updates and deletes; the **hosts** of HTTP calls with their status class; expectation labels with pass, fail or error and a short message such as "No WelcomeMail was sent"; for payment webhooks, the event ID, type and your app's response status.
 
-**Sent, for payment reconciliation:** the provider, time window and number of records checked, and for each gap its type, the provider's reference, the customer reference and a timestamp.
+**Sent, for payment reconciliation:** the provider, time window and number of records checked; for each gap its type, the provider's reference, the customer reference and a timestamp; and the shape of your mapping (model class, key column and configured conditions), so the dashboard can say which record it expected.
 
 **Never sent:** exception messages or stack traces, model attributes, query bindings, email addresses (compared as hashes), request or webhook payloads, URL paths or query strings, amounts, card details or names.
 

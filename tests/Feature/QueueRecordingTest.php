@@ -96,6 +96,9 @@ it('gives a nested dispatchSync job its own run without inflating the parent', f
 
     expect($parent['metrics']['db_insert'])->toBe(1)
         ->and($child['metrics']['db_insert'])->toBe(2)
+        // Table names only, per kind of write.
+        ->and(((array) $parent['breakdown'])['tables'])->toBe(['orders' => ['insert' => 1]])
+        ->and(((array) $child['breakdown'])['tables'])->toBe(['orders' => ['insert' => 2]])
         ->and($child['run_id'])->not->toBe($parent['run_id'])
         // The sync driver fires no JobQueued, so the inline child is counted as the parent's dispatch.
         ->and($parent['metrics']['jobs_dispatched'])->toBe(1)

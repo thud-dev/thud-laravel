@@ -8,7 +8,7 @@ use Illuminate\Database\Events\QueryExecuted;
 use Thud\Recording\RunStack;
 
 /**
- * Counts insert / update / delete queries on the current run.
+ * Counts insert / update / delete queries on the current run, in total and per table.
  *
  * Classifies by the first SQL keyword and skips writes to config('thud.ignore_tables') so queue
  * and framework bookkeeping (jobs, cache, sessions...) never looks like real work.
@@ -56,6 +56,10 @@ final class QueryListener
         }
 
         $run->counter->increment('db_'.$kind);
+
+        if ($table !== null) {
+            $run->counter->tableWritten($table, $kind);
+        }
     }
 
     /**

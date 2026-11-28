@@ -164,7 +164,12 @@ it('sends references and results to Thud, never amounts or emails', function ():
         return $body['provider'] === 'stripe'
             && $body['checked'] === 6
             && count($body['gaps']) === 4
-            && array_keys($body) === ['provider', 'window_start', 'window_end', 'checked', 'truncated', 'gaps'];
+            && array_keys($body) === ['provider', 'window_start', 'window_end', 'checked', 'truncated', 'gaps', 'mapping']
+            // The mapping's shape, so the dashboard can name the record it expected: never values.
+            && $body['mapping'] === [
+                'payments' => ['model' => Payment::class, 'key' => 'provider_ref', 'conditions' => ['paid_at' => 'not_null']],
+                'subscriptions' => ['model' => Subscription::class, 'key' => 'provider_ref', 'conditions' => ['status' => 'active']],
+            ];
     });
 });
 

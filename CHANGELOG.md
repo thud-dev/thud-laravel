@@ -2,6 +2,11 @@
 
 All notable changes to `thud/laravel` are documented here. This project follows [Semantic Versioning](https://semver.org).
 
+## v0.4.0 - 2026-11-28
+
+- Each run records the tables it wrote to, with how many inserts, updates and deletes (`breakdown.tables`, at most 50 tables). Table names only, never values. The dashboard uses them to say what a normal run writes.
+- Payment reconciliation sends the shape of your mapping (model class, key column and configured conditions), so a payment gap can name the record your app was expected to have.
+
 ## v0.3.0 - 2026-11-24
 
 - A failed run sends its exception's class name (such as `TypeError`), never its message or stack trace. This includes webhooks whose crash Laravel turned into a 500 response.

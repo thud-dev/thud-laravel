@@ -27,6 +27,41 @@ final class Mapping
      */
     public function __construct(private readonly array $map) {}
 
+    /**
+     * The shape of the mapping, so the dashboard can say which record was expected: model class,
+     * key column and conditions as configured. Never any values from the database.
+     *
+     * @return array<string, array{model: string, key: string, conditions: array<string, string|list<string>>}>
+     */
+    public function describe(): array
+    {
+        $described = [];
+
+        foreach (['payments' => 'paid', 'subscriptions' => 'active'] as $kind => $conditionKey) {
+            $config = $this->map[$kind] ?? null;
+
+            if (! is_array($config) || ! is_string($config['model'] ?? null) || ! is_string($config['key'] ?? null)) {
+                continue;
+            }
+
+            $conditions = [];
+
+            foreach ((array) ($config[$conditionKey] ?? []) as $column => $condition) {
+                if (! is_string($column)) {
+                    continue;
+                }
+
+                $conditions[$column] = is_array($condition)
+                    ? array_values(array_map(static fn (mixed $v): string => substr(is_scalar($v) ? (string) $v : '', 0, 100), $condition))
+                    : substr(is_scalar($condition) ? (string) $condition : '', 0, 100);
+            }
+
+            $described[$kind] = ['model' => $config['model'], 'key' => $config['key'], 'conditions' => $conditions];
+        }
+
+        return $described;
+    }
+
     public function checksPayments(): bool
     {
         return isset($this->map['payments']);

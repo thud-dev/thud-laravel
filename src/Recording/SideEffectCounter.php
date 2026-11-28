@@ -38,6 +38,16 @@ final class SideEffectCounter
     private array $jobs = [];
 
     /**
+     * Write statements per table and kind: table names are schema, never data.
+     *
+     * @var array<string, array<string, int>>
+     */
+    private array $tables = [];
+
+    /** Bounds the payload for a run that writes to an unusual number of tables. */
+    public const MAX_TABLES = 50;
+
+    /**
      * sha256 of lower-cased "to" addresses per mailable. Kept in memory for Expect::mailSent()->to()
      * and never sent.
      *
@@ -128,6 +138,18 @@ final class SideEffectCounter
         return $job === null ? $this->metrics['jobs_dispatched'] : ($this->jobs[$job] ?? 0);
     }
 
+    /**
+     * @param  'insert'|'update'|'delete'  $kind
+     */
+    public function tableWritten(string $table, string $kind): void
+    {
+        if (! isset($this->tables[$table]) && count($this->tables) >= self::MAX_TABLES) {
+            return;
+        }
+
+        $this->tables[$table][$kind] = ($this->tables[$table][$kind] ?? 0) + 1;
+    }
+
     public function jobDispatched(string $job): void
     {
         $this->metrics['jobs_dispatched']++;
@@ -169,6 +191,7 @@ final class SideEffectCounter
             'notifications' => $this->notifications,
             'http_hosts' => $this->httpHosts,
             'jobs' => $this->jobs,
+            'tables' => $this->tables,
         ], static fn (array $group): bool => $group !== []);
     }
 }

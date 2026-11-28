@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Thud\Recording\Listeners\QueryListener;
 use Thud\Recording\RunContext;
 use Thud\Recording\RunStack;
+use Thud\Recording\SideEffectCounter;
 
 it('classifies writes by their first keyword', function (string $sql, ?string $kind): void {
     expect(QueryListener::classify($sql))->toBe($kind);
@@ -50,4 +51,18 @@ it('strips the connection table prefix before checking ignore_tables', function 
     $db->table('orders')->insert(['id' => 1]); // app_orders: counted
 
     expect($run->metric('db_insert'))->toBe(1);
+});
+
+it('records writes per table, up to 50 tables a run', function (): void {
+    $counter = new SideEffectCounter;
+
+    foreach (range(1, 60) as $i) {
+        $counter->tableWritten("table_{$i}", 'insert');
+    }
+    $counter->tableWritten('table_1', 'update');
+
+    $tables = $counter->breakdown()['tables'];
+
+    expect($tables)->toHaveCount(50)
+        ->and($tables['table_1'])->toBe(['insert' => 1, 'update' => 1]);
 });

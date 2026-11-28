@@ -66,6 +66,7 @@ final class Reconciler
             'checked' => count($payments) + count($subscriptions),
             'truncated' => $truncated,
             'gaps' => $gaps,
+            'mapping' => $mapping->describe(),
         ];
     }
 
